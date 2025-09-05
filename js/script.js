@@ -439,7 +439,7 @@ class HeroSlideshow {
         this.navDots = document.querySelectorAll('.nav-dot');
         this.currentSlide = 0;
         this.slideInterval = null;
-        this.autoPlayInterval = 5000; // 5 seconds
+        this.autoPlayInterval = 60000; // 60 seconds (1 minute)
         
         this.init();
     }
@@ -557,7 +557,492 @@ function addParallaxEffect() {
 // Initialize parallax effect
 document.addEventListener('DOMContentLoaded', addParallaxEffect);
 
+// Review System
+class ReviewSystem {
+    constructor() {
+        this.reviews = [];
+        this.storageKey = 'kienyeji-reviews';
+        this.currentReviewIndex = 0;
+        this.autoRotateInterval = null;
+        this.autoRotateDelay = 8000; // 8 seconds per review
+        this.progressInterval = null;
+        this.init();
+    }
+
+    async init() {
+        await this.loadReviews();
+        this.displayReviews();
+        this.setupForm();
+    }
+
+    async loadReviews() {
+        try {
+            // Try to load from localStorage first
+            const localReviews = localStorage.getItem(this.storageKey);
+            if (localReviews) {
+                this.reviews = JSON.parse(localReviews);
+                // Filter out test reviews
+                this.reviews = this.filterValidReviews(this.reviews);
+                return;
+            }
+
+            // If no local reviews, load from JSON file
+            const response = await fetch('data/reviews.json');
+            if (response.ok) {
+                this.reviews = await response.json();
+                // Filter out test reviews
+                this.reviews = this.filterValidReviews(this.reviews);
+                // Save to localStorage for future use
+                this.saveReviewsToStorage();
+            } else {
+                console.warn('Could not load reviews data');
+                this.reviews = [];
+            }
+        } catch (error) {
+            console.error('Error loading reviews:', error);
+            this.reviews = [];
+        }
+    }
+
+    filterValidReviews(reviews) {
+        // Filter out test reviews and reviews by Victor or similar test names
+        const excludeNames = ['victor', 'test', 'admin', 'demo'];
+        return reviews.filter(review => {
+            const name = review.name.toLowerCase().trim();
+            return !excludeNames.some(excludeName => name.includes(excludeName));
+        });
+    }
+
+    saveReviewsToStorage() {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(this.reviews));
+        } catch (error) {
+            console.error('Error saving reviews to localStorage:', error);
+        }
+    }
+
+    displayReviews() {
+        const reviewsList = document.getElementById('reviews-list');
+        if (!reviewsList) return;
+
+        if (this.reviews.length === 0) {
+            reviewsList.innerHTML = `
+                <div class="review-card">
+                    <div class="no-reviews">
+                        <p>No reviews yet. Be the first to share your experience!</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // Sort reviews by date (newest first)
+        const sortedReviews = [...this.reviews].sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        // Display all reviews for carousel
+        reviewsList.innerHTML = sortedReviews.map(review => this.createReviewCard(review)).join('');
+        
+        // Setup carousel functionality
+        this.setupCarousel();
+        this.startAutoRotation();
+    }
+
+    createReviewCard(review) {
+        const stars = this.generateStars(review.rating);
+        const formattedDate = this.formatDate(review.date);
+        
+        return `
+            <div class="review-card">
+                <div class="review-header">
+                    <div class="reviewer-info">
+                        <h4>${this.escapeHtml(review.name)}</h4>
+                        <div class="review-date">${formattedDate}</div>
+                    </div>
+                    <div class="review-rating">
+                        ${stars}
+                    </div>
+                </div>
+                <p class="review-comment">"${this.escapeHtml(review.comment)}"</p>
+                ${review.verified ? '<span class="review-verified"><i class="fas fa-check-circle"></i> Verified Stay</span>' : ''}
+            </div>
+        `;
+    }
+
+    generateStars(rating) {
+        let stars = '';
+        for (let i = 1; i <= 5; i++) {
+            stars += `<span class="star ${i <= rating ? '' : 'empty'}">★</span>`;
+        }
+        return stars;
+    }
+
+    formatDate(dateString) {
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        } catch (error) {
+            return dateString;
+        }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    setupForm() {
+        const reviewForm = document.getElementById('review-form');
+        if (!reviewForm) return;
+
+        reviewForm.addEventListener('submit', (e) => this.handleFormSubmit(e));
+
+        // Add real-time validation
+        const inputs = reviewForm.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            input.addEventListener('blur', () => this.validateField(input));
+            input.addEventListener('input', () => {
+                if (input.classList.contains('error')) {
+                    this.validateField(input);
+                }
+            });
+        });
+    }
+
+    validateField(field) {
+        const value = field.value.trim();
+        let isValid = true;
+        let errorMessage = '';
+
+        // Remove existing error classes
+        field.classList.remove('error');
+        this.removeFieldError(field);
+
+        // Validate based on field type
+        switch (field.type) {
+            case 'text':
+                if (field.name === 'name' && (!value || value.length < 2)) {
+                    isValid = false;
+                    errorMessage = 'Please enter your full name (at least 2 characters)';
+                }
+                break;
+            case 'email':
+                if (!value) {
+                    isValid = false;
+                    errorMessage = 'Email is required';
+                } else if (!this.isValidEmail(value)) {
+                    isValid = false;
+                    errorMessage = 'Please enter a valid email address';
+                }
+                break;
+            default:
+                if (field.hasAttribute('required') && !value) {
+                    isValid = false;
+                    errorMessage = `${field.previousElementSibling.textContent} is required`;
+                }
+        }
+
+        // Special validation for textarea
+        if (field.tagName === 'TEXTAREA' && field.name === 'comment') {
+            if (!value) {
+                isValid = false;
+                errorMessage = 'Please write your review';
+            } else if (value.length < 10) {
+                isValid = false;
+                errorMessage = 'Please write at least 10 characters for your review';
+            } else if (value.length > 500) {
+                isValid = false;
+                errorMessage = 'Review must be less than 500 characters';
+            }
+        }
+
+        if (!isValid) {
+            field.classList.add('error');
+            this.showFieldError(field, errorMessage);
+        }
+
+        return isValid;
+    }
+
+    showFieldError(field, message) {
+        let errorElement = field.parentNode.querySelector('.field-error');
+        if (!errorElement) {
+            errorElement = document.createElement('div');
+            errorElement.className = 'field-error';
+            errorElement.style.cssText = `
+                color: #dc3545;
+                font-size: 0.85rem;
+                margin-top: 0.25rem;
+                display: block;
+            `;
+            field.parentNode.appendChild(errorElement);
+        }
+        errorElement.textContent = message;
+    }
+
+    removeFieldError(field) {
+        const errorElement = field.parentNode.querySelector('.field-error');
+        if (errorElement) {
+            errorElement.remove();
+        }
+    }
+
+    async handleFormSubmit(e) {
+        e.preventDefault();
+        
+        const form = e.target;
+        const formData = new FormData(form);
+        
+        // Validate all fields
+        const inputs = form.querySelectorAll('input, select, textarea');
+        let isFormValid = true;
+        
+        inputs.forEach(input => {
+            if (!this.validateField(input)) {
+                isFormValid = false;
+            }
+        });
+
+        if (!isFormValid) {
+            showAlert('Please correct the errors in the form before submitting.', 'error');
+            return;
+        }
+
+        // Check if this is a test review
+        const name = formData.get('name').trim().toLowerCase();
+        const excludeNames = ['victor', 'test', 'admin', 'demo'];
+        if (excludeNames.some(excludeName => name.includes(excludeName))) {
+            showAlert('Test reviews are not allowed. Please use your real name.', 'error');
+            return;
+        }
+
+        // Show loading state
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="loading"></span> Submitting...';
+
+        try {
+            // Create new review object
+            const newReview = {
+                id: Date.now().toString(),
+                name: formData.get('name').trim(),
+                email: formData.get('email').trim(),
+                rating: parseInt(formData.get('rating')),
+                comment: formData.get('comment').trim(),
+                date: new Date().toISOString().split('T')[0],
+                verified: false // New reviews are not verified by default
+            };
+
+            // Add to reviews array
+            this.reviews.unshift(newReview);
+            
+            // Apply filtering to ensure no test reviews are included
+            this.reviews = this.filterValidReviews(this.reviews);
+            
+            // Save to localStorage
+            this.saveReviewsToStorage();
+            
+            // Refresh display
+            this.displayReviews();
+            
+            // Show success message
+            showAlert('Thank you for your review! It has been submitted successfully and will appear on our home page.', 'success');
+            
+            // Reset form
+            form.reset();
+            
+            // If we're on home page, scroll to reviews, otherwise suggest visiting home page
+            const reviewsList = document.getElementById('reviews-list');
+            if (reviewsList) {
+                setTimeout(() => {
+                    reviewsList.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }, 1000);
+            } else {
+                // We're on about page, show a message suggesting to visit home page
+                setTimeout(() => {
+                    showAlert('Visit our <a href="index.html#reviews" style="color: var(--primary-color); text-decoration: underline;">home page</a> to see your review along with others!', 'info');
+                }, 2000);
+            }
+            
+        } catch (error) {
+            console.error('Error submitting review:', error);
+            showAlert('There was an error submitting your review. Please try again.', 'error');
+        } finally {
+            // Restore button state
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    }
+
+    isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    setupCarousel() {
+        if (this.reviews.length <= 1) return;
+
+        // Create navigation dots
+        const navigation = document.getElementById('reviews-navigation');
+        if (navigation) {
+            navigation.innerHTML = this.reviews.map((_, index) => 
+                `<div class="reviews-nav-dot ${index === 0 ? 'active' : ''}" data-index="${index}"></div>`
+            ).join('');
+
+            // Add click handlers for dots
+            navigation.addEventListener('click', (e) => {
+                if (e.target.classList.contains('reviews-nav-dot')) {
+                    const index = parseInt(e.target.dataset.index);
+                    this.goToReview(index);
+                    this.resetAutoRotation();
+                }
+            });
+        }
+
+        // Setup prev/next buttons
+        const prevBtn = document.getElementById('reviews-prev');
+        const nextBtn = document.getElementById('reviews-next');
+
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                this.previousReview();
+                this.resetAutoRotation();
+            });
+        }
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                this.nextReview();
+                this.resetAutoRotation();
+            });
+        }
+
+        // Pause on hover
+        const carousel = document.getElementById('reviews-carousel-container');
+        if (carousel) {
+            carousel.addEventListener('mouseenter', () => this.pauseAutoRotation());
+            carousel.addEventListener('mouseleave', () => this.resumeAutoRotation());
+        }
+    }
+
+    goToReview(index) {
+        this.currentReviewIndex = index;
+        const carousel = document.getElementById('reviews-list');
+        const navigation = document.getElementById('reviews-navigation');
+        
+        if (carousel) {
+            carousel.style.transform = `translateX(-${index * 100}%)`;
+        }
+
+        // Update navigation dots
+        if (navigation) {
+            const dots = navigation.querySelectorAll('.reviews-nav-dot');
+            dots.forEach((dot, i) => {
+                dot.classList.toggle('active', i === index);
+            });
+        }
+    }
+
+    nextReview() {
+        const nextIndex = (this.currentReviewIndex + 1) % this.reviews.length;
+        this.goToReview(nextIndex);
+    }
+
+    previousReview() {
+        const prevIndex = this.currentReviewIndex === 0 ? this.reviews.length - 1 : this.currentReviewIndex - 1;
+        this.goToReview(prevIndex);
+    }
+
+    startAutoRotation() {
+        if (this.reviews.length <= 1) return;
+
+        this.autoRotateInterval = setInterval(() => {
+            this.nextReview();
+        }, this.autoRotateDelay);
+
+        this.startProgressAnimation();
+    }
+
+    pauseAutoRotation() {
+        if (this.autoRotateInterval) {
+            clearInterval(this.autoRotateInterval);
+            this.autoRotateInterval = null;
+        }
+        this.stopProgressAnimation();
+    }
+
+    resumeAutoRotation() {
+        if (!this.autoRotateInterval && this.reviews.length > 1) {
+            this.startAutoRotation();
+        }
+    }
+
+    resetAutoRotation() {
+        this.pauseAutoRotation();
+        setTimeout(() => {
+            this.resumeAutoRotation();
+        }, 1000); // Wait 1 second before resuming
+    }
+
+    startProgressAnimation() {
+        const progressBar = document.getElementById('reviews-progress');
+        if (!progressBar) return;
+
+        progressBar.style.width = '0%';
+        progressBar.style.transition = 'none';
+        
+        setTimeout(() => {
+            progressBar.style.transition = `width ${this.autoRotateDelay}ms linear`;
+            progressBar.style.width = '100%';
+        }, 50);
+    }
+
+    stopProgressAnimation() {
+        const progressBar = document.getElementById('reviews-progress');
+        if (progressBar) {
+            progressBar.style.width = '0%';
+            progressBar.style.transition = 'none';
+        }
+    }
+
+    // Public method to get review statistics
+    getStats() {
+        if (this.reviews.length === 0) {
+            return { totalReviews: 0, averageRating: 0 };
+        }
+
+        const totalRating = this.reviews.reduce((sum, review) => sum + review.rating, 0);
+        const averageRating = (totalRating / this.reviews.length).toFixed(1);
+        
+        return {
+            totalReviews: this.reviews.length,
+            averageRating: parseFloat(averageRating)
+        };
+    }
+}
+
+// Initialize review system when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize on home page (has reviews display)
+    if (document.getElementById('reviews')) {
+        window.reviewSystem = new ReviewSystem();
+    }
+    // Initialize on about page (has share experience form)
+    else if (document.getElementById('share-experience')) {
+        window.reviewSystem = new ReviewSystem();
+    }
+});
+
 // Console welcome message
 console.log('%c🏡 Welcome to Kienyeji Wooden Rest Website!', 'color: #8B4513; font-size: 16px; font-weight: bold;');
 console.log('Your wooden escape in Arusha awaits...');
 console.log('%c✨ Modern hero slideshow activated!', 'color: #CD853F; font-size: 12px;');
+console.log('%c⭐ Reviews carousel system loaded!', 'color: #CD853F; font-size: 12px;');

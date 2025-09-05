@@ -208,6 +208,47 @@
         </div>
     </section>
 
+    <!-- Share Experience Section -->
+    <section class="reviews" id="share-experience">
+        <div class="container">
+            <div class="review-form-card">
+                <h3>Share Your Experience</h3>
+                <p>We'd love to hear about your stay at Kienyeji Wooden Rest.</p>
+                <form id="review-form" novalidate>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="review-name">Full Name</label>
+                            <input type="text" id="review-name" name="name" placeholder="Your name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="review-email">Email (won't be displayed)</label>
+                            <input type="email" id="review-email" name="email" placeholder="you@example.com" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="review-rating">Rating</label>
+                            <select id="review-rating" name="rating" required>
+                                <option value="">Select rating</option>
+                                <option value="5">★★★★★ (5)</option>
+                                <option value="4">★★★★☆ (4)</option>
+                                <option value="3">★★★☆☆ (3)</option>
+                                <option value="2">★★☆☆☆ (2)</option>
+                                <option value="1">★☆☆☆☆ (1)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="review-comment">Your Review</label>
+                        <textarea id="review-comment" name="comment" rows="4" placeholder="Tell us about your stay..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-secondary">Submit Review</button>
+                </form>
+                <small class="privacy-note">By submitting, you agree that your name, rating and review may be shown on this website. Your email is only used for verification and will not be displayed.</small>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="container">

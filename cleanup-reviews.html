@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cleanup Reviews - Admin Tool</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #faf8f5;
+        }
+        .admin-panel {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(44, 24, 16, 0.1);
+        }
+        button {
+            background-color: #8B4513;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #2c1810;
+        }
+        .status {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="admin-panel">
+        <h1>Review Cleanup Tool</h1>
+        <p>This tool helps clean up test reviews and unwanted entries from the review system.</p>
+        
+        <div id="status"></div>
+        
+        <button onclick="viewCurrentReviews()">View Current Reviews</button>
+        <button onclick="cleanupTestReviews()">Remove Test Reviews</button>
+        <button onclick="clearAllReviews()">Clear All Reviews</button>
+        
+        <div id="reviewList"></div>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        function viewCurrentReviews() {
+            const reviews = JSON.parse(localStorage.getItem('kienyeji-reviews') || '[]');
+            const reviewListDiv = document.getElementById('reviewList');
+            
+            if (reviews.length === 0) {
+                reviewListDiv.innerHTML = '<p><em>No reviews found in localStorage</em></p>';
+                showStatus('No reviews found in localStorage', 'info');
+                return;
+            }
+
+            reviewListDiv.innerHTML = `
+                <h3>Current Reviews (${reviews.length}):</h3>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    ${reviews.map((review, index) => `
+                        <div style="border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 5px;">
+                            <strong>${review.name}</strong> - ${review.rating}/5 stars - ${review.date}
+                            <br><em>"${review.comment}"</em>
+                            <br><small>ID: ${review.id}</small>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            showStatus(`Found ${reviews.length} reviews in localStorage`, 'info');
+        }
+
+        function cleanupTestReviews() {
+            const reviews = JSON.parse(localStorage.getItem('kienyeji-reviews') || '[]');
+            const excludeNames = ['victor', 'test', 'admin', 'demo'];
+            
+            const originalCount = reviews.length;
+            const cleanReviews = reviews.filter(review => {
+                const name = review.name.toLowerCase().trim();
+                return !excludeNames.some(excludeName => name.includes(excludeName));
+            });
+            
+            localStorage.setItem('kienyeji-reviews', JSON.stringify(cleanReviews));
+            
+            const removedCount = originalCount - cleanReviews.length;
+            if (removedCount > 0) {
+                showStatus(`Successfully removed ${removedCount} test review(s). ${cleanReviews.length} reviews remaining.`, 'success');
+            } else {
+                showStatus('No test reviews found to remove.', 'info');
+            }
+            
+            viewCurrentReviews();
+        }
+
+        function clearAllReviews() {
+            if (confirm('Are you sure you want to delete ALL reviews? This cannot be undone.')) {
+                localStorage.removeItem('kienyeji-reviews');
+                showStatus('All reviews have been cleared from localStorage', 'success');
+                document.getElementById('reviewList').innerHTML = '';
+            }
+        }
+
+        // Auto-load current reviews on page load
+        window.addEventListener('load', viewCurrentReviews);
+    </script>
+</body>
+</html>

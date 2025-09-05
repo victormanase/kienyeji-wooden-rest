@@ -1,0 +1,38 @@
+[
+    {
+        "id": "1",
+        "name": "Sarah Johnson",
+        "email": "sarah@email.com",
+        "rating": 5,
+        "comment": "Absolutely loved our stay at Kienyeji Wooden Rest! The villa was clean, comfortable, and perfectly located. The kitchen was fully equipped and the hosts were incredibly welcoming. Perfect for our honeymoon!",
+        "date": "2025-08-15",
+        "verified": true
+    },
+    {
+        "id": "2", 
+        "name": "David & Maria Chen",
+        "email": "chen@email.com",
+        "rating": 5,
+        "comment": "What a gem! The wooden architecture gives such a cozy feel. We used it as our base for safari trips and it was perfect. Great value for money and excellent location in Arusha.",
+        "date": "2025-07-28",
+        "verified": true
+    },
+    {
+        "id": "3",
+        "name": "James Mitchell",
+        "email": "james@email.com", 
+        "rating": 4,
+        "comment": "Really enjoyed our stay. The bedrooms were spacious and the kitchen made it easy to prepare our own meals. Only minor issue was WiFi could be stronger, but overall excellent experience.",
+        "date": "2025-07-10",
+        "verified": true
+    },
+    {
+        "id": "4",
+        "name": "Lisa & Tom Anderson",
+        "email": "anderson@email.com",
+        "rating": 5,
+        "comment": "Perfect for families! Our kids loved the space and we appreciated having a full kitchen. The location made it easy to explore Arusha and plan our Tanzania adventures. Highly recommended!",
+        "date": "2025-06-22",
+        "verified": true
+    }
+]
